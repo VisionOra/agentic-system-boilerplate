@@ -1,65 +1,50 @@
-"""Define the configurable parameters for the agent."""
+"""Base configuration for LangGraph applications."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
-from typing import Annotated, Any, Literal, Optional, Type, TypeVar
+from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 
-from langchain_core.runnables import RunnableConfig, ensure_config
+from langchain_core.runnables import RunnableConfig
 
+T = TypeVar("T", bound="BaseConfiguration")
 
 @dataclass(kw_only=True)
 class BaseConfiguration:
-    """Configuration class for indexing and retrieval operations.
-
-    This class defines the parameters needed for configuring the indexing and
-    retrieval processes, including embedding model selection, retriever provider choice, and search parameters.
+    """Base configuration class for LangGraph applications.
+    
+    This class provides common functionality for all configuration classes
+    in the application, including methods for converting to and from
+    RunnableConfig objects.
     """
-
-    embedding_model: Annotated[
-        str,
-        {"__template_metadata__": {"kind": "embeddings"}},
-    ] = field(
-        default="openai/text-embedding-3-small",
-        metadata={
-            "description": "Name of the embedding model to use. Must be a valid embedding model name."
-        },
-    )
-
-    retriever_provider: Annotated[
-        Literal["elastic-local", "elastic", "pinecone", "mongodb"],
-        {"__template_metadata__": {"kind": "retriever"}},
-    ] = field(
-        default="elastic-local",
-        metadata={
-            "description": "The vector store provider to use for retrieval. Options are 'elastic', 'pinecone', or 'mongodb'."
-        },
-    )
-
-    search_kwargs: dict[str, Any] = field(
-        default_factory=dict,
-        metadata={
-            "description": "Additional keyword arguments to pass to the search function of the retriever."
-        },
-    )
-
+    
+    CONFIG_KEY: ClassVar[str] = "configurable"
+    
     @classmethod
-    def from_runnable_config(
-        cls: Type[T], config: Optional[RunnableConfig] = None
-    ) -> T:
-        """Create an IndexConfiguration instance from a RunnableConfig object.
-
+    def from_runnable_config(cls: Type[T], config: RunnableConfig) -> T:
+        """Create a configuration instance from a RunnableConfig.
+        
         Args:
-            cls (Type[T]): The class itself.
-            config (Optional[RunnableConfig]): The configuration object to use.
-
+            config: The RunnableConfig object to extract configuration from.
+            
         Returns:
-            T: An instance of IndexConfiguration with the specified configuration.
+            A new instance of the configuration class.
         """
-        config = ensure_config(config)
-        configurable = config.get("configurable") or {}
-        _fields = {f.name for f in fields(cls) if f.init}
-        return cls(**{k: v for k, v in configurable.items() if k in _fields})
-
-
-T = TypeVar("T", bound=BaseConfiguration)
+        if cls.CONFIG_KEY in config:
+            config_params = config[cls.CONFIG_KEY]
+            if isinstance(config_params, dict):
+                # Filter to include only keys that are valid for this dataclass
+                valid_params = {k: v for k, v in config_params.items() 
+                                if k in cls.__dataclass_fields__}
+                return cls(**valid_params)
+        
+        # Return default instance if no config found
+        return cls()
+    
+    def to_runnable_config(self) -> RunnableConfig:
+        """Convert this configuration to a RunnableConfig.
+        
+        Returns:
+            A RunnableConfig object containing this configuration.
+        """
+        return {self.CONFIG_KEY: {k: v for k, v in self.__dict__.items()}} 

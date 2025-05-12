@@ -36,14 +36,8 @@ package-mode = false
 pytest = "^8.3.5"
 
 [tool.setuptools]
-packages = ["retrieval_graph", "index_graph", "shared"]
-[tool.setuptools.package-dir]
-"langgraph.templates.retrieval_graph" = "src/retrieval_graph"
-"langgraph.templates.index_graph" = "src/index_graph"
-"retrieval_graph" = "src/retrieval_graph"
-"index_graph" = "src/index_graph"
-"shared" = "src/shared"
-
+packages = ["index_graph", "shared"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
