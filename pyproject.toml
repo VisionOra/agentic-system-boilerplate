@@ -32,6 +32,9 @@ build-backend = "setuptools.build_meta"
 [tool.poetry]
 package-mode = false
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+
 [tool.setuptools]
 packages = ["retrieval_graph", "index_graph", "shared"]
 [tool.setuptools.package-dir]

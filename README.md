@@ -1,10 +1,19 @@
-# RAG Research Agent Template
+# SimpleChatbot with LangGraph
 
-A powerful RAG (Retrieval-Augmented Generation) research agent template built with LangGraph. This template provides a framework for building advanced retrieval-augmented generation systems.
+A lightweight, standalone chatbot built using LangGraph. This project provides a clean, simple implementation of a conversational agent that can be easily extended or customized.
+
+## Overview
+
+This chatbot provides a straightforward implementation of a conversational agent using LangGraph. It handles:
+
+- Message processing
+- Response generation
+- Conversation state management
+
+The design prioritizes simplicity and maintainability, making it an excellent starting point for more complex conversational applications.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - Python 3.9+ (required)
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended for dependency management)
 
@@ -14,7 +23,7 @@ A powerful RAG (Retrieval-Augmented Generation) research agent template built wi
 
 ```bash
 git clone <repository-url>
-cd rag-research-agent-template
+cd simple-chatbot
 ```
 
 ### 2. Environment Setup
@@ -27,41 +36,11 @@ cp .env.example .env
 
 2. Configure your API keys in the `.env` file:
    ```
-   # LLM APIs
+   # LLM API
    OPENAI_API_KEY=your_openai_key
-   ANTHROPIC_API_KEY=your_anthropic_key
-   FIREWORKS_API_KEY=your_fireworks_key
-   
-   # Pinecone
-   PINECONE_API_KEY=your_pinecone_key
-   PINECONE_INDEX_NAME=your_index_name
    ```
 
-### 3. Start the Infrastructure Services
-
-Using Docker Compose to start Elasticsearch and MongoDB:
-
-```bash
-docker-compose up -d
-```
-
-This starts:
-- **Elasticsearch**: Available at http://localhost:9200
-- **MongoDB**: Available at mongodb://admin:password@localhost:27017
-
-### 4. Verify Services
-
-Check if Elasticsearch is running:
-```bash
-curl http://localhost:9200
-```
-
-Check if MongoDB is running:
-```bash
-docker exec -it mongodb mongosh -u admin -p password --eval "db.serverStatus().ok"
-```
-
-### 5. Install Python Dependencies
+### 3. Install Python Dependencies
 
 Using Poetry (recommended):
 ```bash
@@ -74,99 +53,91 @@ OR using pip:
 pip install -e .
 ```
 
-### 6. Run Tests
+## Running the Chatbot
 
-Verify your installation is working correctly:
+### Start the LangGraph Development Server
+
 ```bash
-make test
+langgraph dev
+```
+
+This will start the LangGraph development server, which provides a web interface to interact with your chatbot and view the graph execution.
+
+### Run Using Python
+
+You can also use the chatbot directly in Python:
+
+```python
+from src.index_graph import graph as chatbot_graph
+from langchain_core.messages import HumanMessage
+
+# Create a message
+messages = [HumanMessage(content="Hello, how are you today?")]
+
+# Invoke the chatbot
+result = await chatbot_graph.ainvoke({"messages": messages})
+
+# Print the response
+print(result["messages"][-1].content)
 ```
 
 ## Project Structure
 
 - `src/`: Main source code
-  - `retrieval_graph/`: Components for retrieval functionality
-  - `index_graph/`: Components for indexing functionality
+  - `index_graph/`: Core chatbot components
+    - `configuration.py`: Configuration settings and LLM setup
+    - `graph.py`: Main graph definition and message handler
+    - `state.py`: State management for the chat
   - `shared/`: Shared utilities and components
 - `tests/`: Test suite
-- `docker-compose.yml`: Docker configuration for Elasticsearch and MongoDB
 
-## LLM Provider Options
+## Configuration Options
 
-The application supports multiple LLM providers:
-- OpenAI
-- Anthropic
-- Fireworks
+The chatbot can be configured through the `IndexConfiguration` class:
 
-## Retrieval Options
+- `llm_model`: The language model to use (default: "gpt-3.5-turbo")
 
-Multiple retrieval backends are supported:
-- Elasticsearch (local or cloud)
-- MongoDB
-- Pinecone
+You can adjust these settings when invoking the graph:
 
-## Environment Variables Reference
+```python
+from langchain_core.runnables import RunnableConfig
 
+config = RunnableConfig(
+    configurable={
+        "llm_model": "gpt-4o",
+    }
+)
+
+result = await chatbot_graph.ainvoke({"messages": messages}, config)
 ```
-# Project Configuration
-LANGSMITH_PROJECT=rag-research-agent
-
-# LLM APIs
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-FIREWORKS_API_KEY=your_fireworks_key
-
-# Elasticsearch Configuration
-ELASTICSEARCH_URL=http://localhost:9200
-ELASTICSEARCH_USER=
-ELASTICSEARCH_PASSWORD=
-ELASTICSEARCH_CLOUD=false
-
-# Pinecone Configuration
-PINECONE_API_KEY=your_pinecone_key
-PINECONE_INDEX_NAME=your_index_name
-
-# MongoDB Configuration
-MONGODB_URI=mongodb://admin:password@localhost:27017
-```
-
-## Docker Services
-
-The included Docker Compose file sets up:
-
-1. **Elasticsearch**:
-   - Version: 8.11.1
-   - Configuration: Single node setup with security disabled
-   - Ports: 9200, 9300
-   - Data persistence via Docker volume
-
-2. **MongoDB**:
-   - Version: 7.0
-   - Credentials: admin/password
-   - Port: 27017
-   - Data persistence via Docker volume
 
 ## Development
 
-### Run Langchain Studio
+### Run LangGraph Developer Mode
 
 ```bash
 langgraph dev --allow-blocking
 ```
 
+This starts the LangGraph development server, allowing you to visualize and interact with your graph.
+
 ### Run tests:
+
 ```bash
-make test
+poetry run pytest
 ```
 
-Run tests with watch mode:
-```bash
-make test_watch
-```
+## Extending the Chatbot
+
+The simple architecture makes it easy to extend the chatbot with additional capabilities:
+
+1. **Add Memory**: Implement persistent storage to maintain conversation history
+2. **Integrate Tools**: Add function-calling capabilities for external API interactions
+3. **Enhance Processing**: Implement pre/post-processing for more sophisticated message handling
+4. **Custom Routing**: Add conditional logic to route messages to different handlers
 
 ## Troubleshooting
 
-- **Elasticsearch not starting**: Check Docker logs with `docker logs elasticsearch`
-- **MongoDB connection issues**: Verify credentials and connection string in your `.env` file
-- **API key errors**: Ensure all required API keys are properly configured in your `.env` file
+- **API key errors**: Ensure the required API keys are properly configured in your `.env` file
+- **Model errors**: Check that you're using a supported model for your API key
 - **Poetry issues**: Try running `poetry lock --no-update` followed by `poetry install`
-# agentic-system-boilerplate

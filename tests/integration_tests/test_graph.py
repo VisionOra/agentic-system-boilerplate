@@ -1,76 +1,31 @@
-import os
-from contextlib import contextmanager
-from typing import Generator
-
 import pytest
 from langchain_core.runnables import RunnableConfig
-from langchain_core.vectorstores import VectorStore
 from langsmith import expect, unit
+from langchain_core.messages import HumanMessage
 
-from src.index_graph import graph as index_graph
-from src.retrieval_graph import graph
-from src.shared.configuration import BaseConfiguration
-from src.shared.retrieval import make_text_encoder
-
-
-@contextmanager
-def make_elastic_vectorstore(
-    configuration: BaseConfiguration,
-) -> Generator[VectorStore, None, None]:
-    """Configure this agent to connect to a specific elastic index."""
-    from langchain_elasticsearch import ElasticsearchStore
-
-    embedding_model = make_text_encoder(configuration.embedding_model)
-    vstore = ElasticsearchStore(
-        es_user=os.environ["ELASTICSEARCH_USER"],
-        es_password=os.environ["ELASTICSEARCH_PASSWORD"],
-        es_url=os.environ["ELASTICSEARCH_URL"],
-        index_name="langchain_index",
-        embedding=embedding_model,
-    )
-    yield vstore
+from src.index_graph import graph as chatbot_graph
 
 
 @pytest.mark.asyncio
 @unit
-async def test_retrieval_graph() -> None:
-    simple_doc = 'In LangGraph, nodes are typically python functions (sync or async) where the first positional argument is the state, and (optionally), the second positional argument is a "config", containing optional configurable parameters (such as a thread_id).'
+async def test_chatbot() -> None:
+    """Test the simple chatbot functionality."""
+    # Create a config for the test
     config = RunnableConfig(
         configurable={
-            "retriever_provider": "elastic-local",
-            "embedding_model": "openai/text-embedding-3-small",
+            "llm_model": "gpt-3.5-turbo",
         }
     )
-    configuration = BaseConfiguration.from_runnable_config(config)
-
-    doc_id = "test_id"
-    result = await index_graph.ainvoke(
-        {"docs": [{"page_content": simple_doc, "id": doc_id}]}, config
-    )
-    expect(result["docs"]).against(lambda x: not x)  # we delete after the end
-    # test general query
-    res = await graph.ainvoke(
-        {"messages": [("user", "Hi! How are you?")]},
+    
+    # Test a basic message exchange
+    user_message = HumanMessage(content="Hi! How are you?")
+    result = await chatbot_graph.ainvoke(
+        {"messages": [user_message]},
         config,
     )
-    expect(res["router"]["type"]).to_contain("general")
-
-    # test query that needs more info
-    res = await graph.ainvoke(
-        {"messages": [("user", "I am having issues with the tools")]},
-        config,
-    )
-    expect(res["router"]["type"]).to_contain("more-info")
-
-    # test LangChain-related query
-    res = await graph.ainvoke(
-        {"messages": [("user", "What is a node in LangGraph?")]},
-        config,
-    )
-    expect(res["router"]["type"]).to_contain("langchain")
-    response = str(res["messages"][-1].content)
-    expect(response.lower()).to_contain("function")
-
-    # clean up after test
-    with make_elastic_vectorstore(configuration) as vstore:
-        await vstore.adelete([doc_id])
+    
+    # Verify we received a response
+    expect(len(result["messages"])).to_be(2)  # Original message + response
+    expect(result["messages"][0].content).to_be("Hi! How are you?")
+    # Verify the response is not empty
+    expect(result["messages"][1].content).not_to_be("")

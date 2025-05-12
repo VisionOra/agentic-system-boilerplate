@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from langchain_openai import ChatOpenAI
+
 from src.shared.configuration import BaseConfiguration
 
 # This file contains sample documents to index, based on the following LangChain and LangGraph documentation pages:
@@ -19,10 +21,20 @@ class IndexConfiguration(BaseConfiguration):
     This class defines the parameters needed for configuring the indexing and
     retrieval processes, including embedding model selection, retriever provider choice, and search parameters.
     """
-
-    docs_file: str = field(
-        default=DEFAULT_DOCS_FILE,
+    llm_model: str = field(
+        default="gpt-3.5-turbo",
         metadata={
-            "description": "Path to a JSON file containing default documents to index."
+            "description": "The language model to use for generating responses."
         },
     )
+    
+    @property
+    def llm(self) -> ChatOpenAI:
+        """Get the LLM instance.
+        
+        Returns:
+            ChatOpenAI: The configured LLM.
+        """
+        return ChatOpenAI(model=self.llm_model)
+    
+    

@@ -1,54 +1,51 @@
-"""This "graph" simply exposes an endpoint for a user to upload docs to be indexed."""
+"""Simple chatbot using LangGraph."""
 
-import json
 from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
+from langchain_core.messages import AIMessage
 
 from src.index_graph.configuration import IndexConfiguration
 from src.index_graph.state import IndexState
-from src.shared import retrieval
-from src.shared.state import reduce_docs
 
 
-async def index_docs(
+async def generate_response(
     state: IndexState, *, config: Optional[RunnableConfig] = None
-) -> dict[str, str]:
-    """Asynchronously index documents in the given state using the configured retriever.
+) -> IndexState:
+    """Generate a response to user messages.
 
-    This function takes the documents from the state, ensures they have a user ID,
-    adds them to the retriever's index, and then signals for the documents to be
-    deleted from the state.
-
-    If docs are not provided in the state, they will be loaded
-    from the configuration.docs_file JSON file.
-
-    Args:
-        state (IndexState): The current state containing documents and retriever.
-        config (Optional[RunnableConfig]): Configuration for the indexing process.r
+    :param IndexState state: The current state
+    :param Optional[RunnableConfig] config: Configuration, defaults to None
+    :return IndexState: Updated state with response
     """
-    if not config:
-        raise ValueError("Configuration required to run index_docs.")
-
-    configuration = IndexConfiguration.from_runnable_config(config)
-    docs = state.docs
-    if not docs:
-        with open(configuration.docs_file) as f:
-            serialized_docs = json.load(f)
-            docs = reduce_docs([], serialized_docs)
-
-    with retrieval.make_retriever(config) as retriever:
-        await retriever.aadd_documents(docs)
-
-    return {"docs": "delete"}
+    # Get configuration
+    configuration = IndexConfiguration.from_runnable_config(config) if config else IndexConfiguration()
+    
+    # Only process if there are messages to respond to
+    if state.messages:
+        # Use the messages directly
+        response = await configuration.llm.ainvoke(state.messages)
+        
+        # Return updated state with the response added to messages
+        return IndexState(
+            messages=state.messages + [response]
+        )
+    
+    # If no messages, just return the original state
+    return state
 
 
 # Define the graph
 builder = StateGraph(IndexState, config_schema=IndexConfiguration)
-builder.add_node(index_docs)
-builder.add_edge(START, "index_docs")
-builder.add_edge("index_docs", END)
+
+# Add node
+builder.add_node("generate_response", generate_response)
+
+# Add edges
+builder.add_edge(START, "generate_response")
+builder.add_edge("generate_response", END)
+
 # Compile into a graph object that you can invoke and deploy.
 graph = builder.compile()
-graph.name = "IndexGraph"
+graph.name = "SimpleChatbot"
